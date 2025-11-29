@@ -7,10 +7,6 @@ local Window = WindUI:CreateWindow({
     Author = "Research",
     Folder = "MM2Config",
     Size = UDim2.fromOffset(500, 600),
-    KeySystem = {
-        Key = "INSERT",
-        Note = "Press INSERT"
-    },
     Transparent = false,
     Theme = "Dark",
     SideBarWidth = 170,
@@ -761,4 +757,4 @@ Players.PlayerRemoving:Connect(function(player)
         TracerObjects[player]:Remove()
         TracerObjects[player] = nil
     end
-end)
+end)       

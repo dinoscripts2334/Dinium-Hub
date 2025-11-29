@@ -1,0 +1,764 @@
+local repo = "https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"
+local WindUI = loadstring(game:HttpGet(repo))()
+
+local Window = WindUI:CreateWindow({
+    Title = "MM2 Private",
+    Icon = "rbxassetid://10734950309",
+    Author = "Research",
+    Folder = "MM2Config",
+    Size = UDim2.fromOffset(500, 600),
+    KeySystem = {
+        Key = "INSERT",
+        Note = "Press INSERT"
+    },
+    Transparent = false,
+    Theme = "Dark",
+    SideBarWidth = 170,
+})
+
+local VisualsTab = Window:Tab({
+    Title = "Visuals",
+    Icon = "eye"
+})
+
+local CombatTab = Window:Tab({
+    Title = "Combat",
+    Icon = "sword"
+})
+
+local MovementTab = Window:Tab({
+    Title = "Movement",
+    Icon = "zap"
+})
+
+local MiscTab = Window:Tab({
+    Title = "Misc",
+    Icon = "settings"
+})
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local ESPEnabled = false
+local TracersEnabled = false
+local RoleDisplayEnabled = false
+local KillAuraEnabled = false
+local KillAuraRange = 15
+local AutoShootEnabled = false
+local AutoShootRange = 50
+local FlyEnabled = false
+local FlySpeed = 50
+local NoclipEnabled = false
+local SpeedHackEnabled = false
+local WalkSpeed = 16
+local AutoFarmEnabled = false
+
+local ESPObjects = {}
+local TracerObjects = {}
+local RoleDisplay = nil
+local FarmPlate = nil
+local CoinsCollected = 0
+local FarmStatus = nil
+
+local function GetRole(player)
+    local char = player.Character
+    if not char then return "Innocent", Color3.new(0, 1, 0) end
+    
+    for _, tool in pairs(char:GetChildren()) do
+        if tool:IsA("Tool") then
+            if tool.Name == "Knife" then
+                return "Murderer", Color3.new(1, 0, 0)
+            elseif tool.Name == "Gun" then
+                return "Sheriff", Color3.new(0, 0, 1)
+            end
+        end
+    end
+    
+    local backpack = player:FindFirstChild("Backpack")
+    if backpack then
+        for _, tool in pairs(backpack:GetChildren()) do
+            if tool:IsA("Tool") then
+                if tool.Name == "Knife" then
+                    return "Murderer", Color3.new(1, 0, 0)
+                elseif tool.Name == "Gun" then
+                    return "Sheriff", Color3.new(0, 0, 1)
+                end
+            end
+        end
+    end
+    
+    return "Innocent", Color3.new(0, 1, 0)
+end
+
+local function CreateESP(player)
+    if player == LocalPlayer then return end
+    
+    local char = player.Character
+    if not char then return end
+    
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    
+    local box = Drawing.new("Square")
+    box.Visible = false
+    box.Color = Color3.new(1, 1, 1)
+    box.Thickness = 2
+    box.Transparency = 1
+    box.Filled = false
+    
+    local text = Drawing.new("Text")
+    text.Visible = false
+    text.Center = true
+    text.Outline = true
+    text.Size = 16
+    text.Color = Color3.new(1, 1, 1)
+    
+    ESPObjects[player] = {box = box, text = text, char = char}
+end
+
+local function UpdateESP()
+    if not ESPEnabled then return end
+    
+    for player, objects in pairs(ESPObjects) do
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+            local hrp = player.Character.HumanoidRootPart
+            local head = player.Character:FindFirstChild("Head")
+            
+            local vector, onScreen = workspace.CurrentCamera:WorldToViewportPoint(hrp.Position)
+            
+            if onScreen then
+                local topVector = workspace.CurrentCamera:WorldToViewportPoint(hrp.Position + Vector3.new(0, 3, 0))
+                local bottomVector = workspace.CurrentCamera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0))
+                
+                local height = math.abs(topVector.Y - bottomVector.Y)
+                local width = height / 2
+                
+                objects.box.Size = Vector2.new(width, height)
+                objects.box.Position = Vector2.new(vector.X - width / 2, vector.Y - height / 2)
+                objects.box.Visible = true
+                
+                local role, color = GetRole(player)
+                objects.box.Color = color
+                
+                local distance = math.floor((LocalPlayer.Character.HumanoidRootPart.Position - hrp.Position).Magnitude)
+                objects.text.Text = player.Name .. "\n[" .. role .. "]\n" .. distance .. "m"
+                objects.text.Position = Vector2.new(vector.X, topVector.Y - 20)
+                objects.text.Color = color
+                objects.text.Visible = true
+            else
+                objects.box.Visible = false
+                objects.text.Visible = false
+            end
+        else
+            objects.box.Visible = false
+            objects.text.Visible = false
+        end
+    end
+end
+
+local function CreateTracer(player)
+    if player == LocalPlayer then return end
+    
+    local line = Drawing.new("Line")
+    line.Visible = false
+    line.Color = Color3.new(1, 1, 1)
+    line.Thickness = 2
+    line.Transparency = 1
+    
+    TracerObjects[player] = line
+end
+
+local function UpdateTracers()
+    if not TracersEnabled then return end
+    
+    for player, line in pairs(TracerObjects) do
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+            local hrp = player.Character.HumanoidRootPart
+            local vector, onScreen = workspace.CurrentCamera:WorldToViewportPoint(hrp.Position)
+            
+            if onScreen then
+                local _, color = GetRole(player)
+                line.From = Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y)
+                line.To = Vector2.new(vector.X, vector.Y)
+                line.Color = color
+                line.Visible = true
+            else
+                line.Visible = false
+            end
+        else
+            line.Visible = false
+        end
+    end
+end
+
+local function UpdateRoleDisplay()
+    if RoleDisplayEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") then
+        if not RoleDisplay then
+            local head = LocalPlayer.Character.Head
+            
+            RoleDisplay = Instance.new("BillboardGui")
+            RoleDisplay.Name = "RoleDisplay"
+            RoleDisplay.Parent = head
+            RoleDisplay.AlwaysOnTop = true
+            RoleDisplay.Size = UDim2.new(0, 100, 0, 50)
+            RoleDisplay.StudsOffset = Vector3.new(0, 2, 0)
+            
+            local textLabel = Instance.new("TextLabel")
+            textLabel.Parent = RoleDisplay
+            textLabel.Size = UDim2.new(1, 0, 1, 0)
+            textLabel.BackgroundTransparency = 1
+            textLabel.TextColor3 = Color3.new(1, 1, 1)
+            textLabel.TextStrokeTransparency = 0
+            textLabel.TextScaled = true
+            textLabel.Font = Enum.Font.GothamBold
+        end
+        
+        local role, color = GetRole(LocalPlayer)
+        RoleDisplay.TextLabel.Text = role
+        RoleDisplay.TextLabel.TextColor3 = color
+    elseif not RoleDisplayEnabled and RoleDisplay then
+        RoleDisplay:Destroy()
+        RoleDisplay = nil
+    end
+end
+
+local function KillAura()
+    if not KillAuraEnabled then return end
+    if not LocalPlayer.Character then return end
+    
+    local hasKnife = false
+    for _, tool in pairs(LocalPlayer.Character:GetChildren()) do
+        if tool:IsA("Tool") and tool.Name == "Knife" then
+            hasKnife = true
+            break
+        end
+    end
+    
+    if not hasKnife then return end
+    
+    local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+            local targetHRP = player.Character.HumanoidRootPart
+            local distance = (hrp.Position - targetHRP.Position).Magnitude
+            
+            if distance <= KillAuraRange then
+                local knife = LocalPlayer.Character:FindFirstChild("Knife")
+                if knife then
+                    local knifeRemote = knife:FindFirstChild("Stab")
+                    if knifeRemote then
+                        knifeRemote:FireServer()
+                    end
+                end
+            end
+        end
+    end
+end
+
+local function AutoShoot()
+    if not AutoShootEnabled then return end
+    if not LocalPlayer.Character then return end
+    
+    local hasGun = false
+    for _, tool in pairs(LocalPlayer.Character:GetChildren()) do
+        if tool:IsA("Tool") and tool.Name == "Gun" then
+            hasGun = true
+            break
+        end
+    end
+    
+    if not hasGun then return end
+    
+    local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+            local role = GetRole(player)
+            if role == "Murderer" then
+                local targetHRP = player.Character.HumanoidRootPart
+                local distance = (hrp.Position - targetHRP.Position).Magnitude
+                
+                if distance <= AutoShootRange then
+                    local gun = LocalPlayer.Character:FindFirstChild("Gun")
+                    if gun then
+                        local gunRemote = gun:FindFirstChild("Fire") or gun:FindFirstChild("KnifeServer") or gun:FindFirstChild("ShootGun")
+                        if gunRemote then
+                            local targetPart = player.Character:FindFirstChild("Head") or targetHRP
+                            gunRemote:FireServer(targetPart.Position)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+local function ToggleFly(enabled)
+    FlyEnabled = enabled
+    
+    if FlyEnabled then
+        local flyLoop
+        flyLoop = RunService.Heartbeat:Connect(function()
+            if not FlyEnabled then
+                flyLoop:Disconnect()
+                return
+            end
+            
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                local hrp = LocalPlayer.Character.HumanoidRootPart
+                local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
+                
+                if humanoid then
+                    humanoid.PlatformStand = true
+                end
+                
+                hrp.Velocity = Vector3.new(0, 0, 0)
+                hrp.CFrame = hrp.CFrame
+                
+                local moveDirection = Vector3.new(0, 0, 0)
+                
+                if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+                    moveDirection = moveDirection + workspace.CurrentCamera.CFrame.LookVector
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+                    moveDirection = moveDirection - workspace.CurrentCamera.CFrame.LookVector
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+                    moveDirection = moveDirection - workspace.CurrentCamera.CFrame.RightVector
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+                    moveDirection = moveDirection + workspace.CurrentCamera.CFrame.RightVector
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                    moveDirection = moveDirection + Vector3.new(0, 1, 0)
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+                    moveDirection = moveDirection - Vector3.new(0, 1, 0)
+                end
+                
+                hrp.CFrame = hrp.CFrame + (moveDirection.Unit * FlySpeed * 0.05)
+            end
+        end)
+    else
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            LocalPlayer.Character.Humanoid.PlatformStand = false
+        end
+    end
+end
+
+local function ToggleNoclip(enabled)
+    NoclipEnabled = enabled
+    
+    if NoclipEnabled then
+        local noclipLoop
+        noclipLoop = RunService.Stepped:Connect(function()
+            if not NoclipEnabled then
+                noclipLoop:Disconnect()
+                return
+            end
+            
+            if LocalPlayer.Character then
+                for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    end
+end
+
+local function ToggleSpeedHack(enabled)
+    SpeedHackEnabled = enabled
+    
+    if SpeedHackEnabled then
+        local speedLoop
+        speedLoop = RunService.Heartbeat:Connect(function()
+            if not SpeedHackEnabled then
+                speedLoop:Disconnect()
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                    LocalPlayer.Character.Humanoid.WalkSpeed = 16
+                end
+                return
+            end
+            
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                LocalPlayer.Character.Humanoid.WalkSpeed = WalkSpeed
+            end
+        end)
+    else
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            LocalPlayer.Character.Humanoid.WalkSpeed = 16
+        end
+    end
+end
+
+local function GetAllPlayers()
+    local playerList = {}
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            table.insert(playerList, player.Name)
+        end
+    end
+    return playerList
+end
+
+local function TeleportToPlayer(playerName)
+    local targetPlayer = Players:FindFirstChild(playerName)
+    if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame
+        end
+    end
+end
+
+local function GetAllCoins()
+    local coins = {}
+    for _, item in pairs(workspace:GetDescendants()) do
+        if item:IsA("Model") and item.Name == "Coin" and item:FindFirstChild("PrimaryPart") then
+            table.insert(coins, item)
+        end
+    end
+    
+    if workspace:FindFirstChild("Coins") then
+        for _, coin in pairs(workspace.Coins:GetChildren()) do
+            if coin:IsA("Model") and coin:FindFirstChild("PrimaryPart") then
+                table.insert(coins, coin)
+            end
+        end
+    end
+    
+    if workspace:FindFirstChild("DroppedItems") then
+        for _, item in pairs(workspace.DroppedItems:GetChildren()) do
+            if item:IsA("Model") and item.Name == "Coin" and item:FindFirstChild("PrimaryPart") then
+                table.insert(coins, item)
+            end
+        end
+    end
+    
+    return coins
+end
+
+local function AutoFarm()
+    if not AutoFarmEnabled then return end
+    
+    CoinsCollected = 0
+    
+    if not FarmPlate then
+        FarmPlate = Instance.new("Part")
+        FarmPlate.Name = "FarmPlate"
+        FarmPlate.Size = Vector3.new(50, 1, 50)
+        FarmPlate.Transparency = 1
+        FarmPlate.CanCollide = true
+        FarmPlate.Anchored = true
+        FarmPlate.Position = Vector3.new(0, 200, 0)
+        FarmPlate.Parent = workspace
+    end
+    
+    ToggleFly(true)
+    
+    spawn(function()
+        while AutoFarmEnabled and CoinsCollected < 40 do
+            local coins = GetAllCoins()
+            
+            if #coins == 0 then
+                wait(1)
+            else
+                for _, coin in pairs(coins) do
+                    if not AutoFarmEnabled or CoinsCollected >= 40 then break end
+                    
+                    if coin and coin:FindFirstChild("PrimaryPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                        local targetPos = coin.PrimaryPart.Position
+                        local hrp = LocalPlayer.Character.HumanoidRootPart
+                        
+                        while (hrp.Position - targetPos).Magnitude > 5 and AutoFarmEnabled and CoinsCollected < 40 do
+                            local direction = (targetPos - hrp.Position).Unit
+                            hrp.CFrame = hrp.CFrame + (direction * FlySpeed * 0.05)
+                            wait()
+                        end
+                        
+                        CoinsCollected = CoinsCollected + 1
+                        
+                        if FarmStatus then
+                            FarmStatus:Set("Collected: " .. CoinsCollected .. "/40 Coins")
+                        end
+                        
+                        wait(0.1)
+                    end
+                end
+            end
+            
+            wait(0.5)
+        end
+        
+        if CoinsCollected >= 40 and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(0, 200, 0)
+            ToggleFly(false)
+            
+            if FarmStatus then
+                FarmStatus:Set("Farming Complete – Safe on Plate")
+            end
+        end
+    end)
+end
+
+VisualsTab:Section({Title = "ESP"})
+
+VisualsTab:Toggle({
+    Title = "ESP (Box + Name + Role + Distance)",
+    Default = false,
+    Callback = function(value)
+        ESPEnabled = value
+        
+        if ESPEnabled then
+            for _, player in pairs(Players:GetPlayers()) do
+                CreateESP(player)
+            end
+        else
+            for _, objects in pairs(ESPObjects) do
+                objects.box:Remove()
+                objects.text:Remove()
+            end
+            ESPObjects = {}
+        end
+    end
+})
+
+VisualsTab:Toggle({
+    Title = "Tracers",
+    Default = false,
+    Callback = function(value)
+        TracersEnabled = value
+        
+        if TracersEnabled then
+            for _, player in pairs(Players:GetPlayers()) do
+                CreateTracer(player)
+            end
+        else
+            for _, line in pairs(TracerObjects) do
+                line:Remove()
+            end
+            TracerObjects = {}
+        end
+    end
+})
+
+VisualsTab:Toggle({
+    Title = "Own Role Display",
+    Default = false,
+    Callback = function(value)
+        RoleDisplayEnabled = value
+        if not RoleDisplayEnabled and RoleDisplay then
+            RoleDisplay:Destroy()
+            RoleDisplay = nil
+        end
+    end
+})
+
+CombatTab:Section({Title = "Kill Aura"})
+
+CombatTab:Toggle({
+    Title = "Kill Aura",
+    Default = false,
+    Callback = function(value)
+        KillAuraEnabled = value
+    end
+})
+
+CombatTab:Slider({
+    Title = "Kill Aura Range",
+    Min = 0,
+    Max = 50,
+    Default = 15,
+    Callback = function(value)
+        KillAuraRange = value
+    end
+})
+
+CombatTab:Section({Title = "Auto Shoot"})
+
+CombatTab:Toggle({
+    Title = "Auto Shoot Murderer",
+    Default = false,
+    Callback = function(value)
+        AutoShootEnabled = value
+    end
+})
+
+CombatTab:Slider({
+    Title = "Auto Shoot Range",
+    Min = 0,
+    Max = 100,
+    Default = 50,
+    Callback = function(value)
+        AutoShootRange = value
+    end
+})
+
+MovementTab:Section({Title = "Fly"})
+
+MovementTab:Toggle({
+    Title = "Fly",
+    Default = false,
+    Callback = function(value)
+        ToggleFly(value)
+    end
+})
+
+MovementTab:Slider({
+    Title = "Fly Speed",
+    Min = 1,
+    Max = 100,
+    Default = 50,
+    Callback = function(value)
+        FlySpeed = value
+    end
+})
+
+MovementTab:Section({Title = "Noclip"})
+
+MovementTab:Toggle({
+    Title = "Noclip",
+    Default = false,
+    Callback = function(value)
+        ToggleNoclip(value)
+    end
+})
+
+MovementTab:Section({Title = "Speed Hack"})
+
+MovementTab:Toggle({
+    Title = "Speed Hack",
+    Default = false,
+    Callback = function(value)
+        ToggleSpeedHack(value)
+    end
+})
+
+MovementTab:Slider({
+    Title = "Walk Speed",
+    Min = 1,
+    Max = 50,
+    Default = 16,
+    Callback = function(value)
+        WalkSpeed = value
+    end
+})
+
+MiscTab:Section({Title = "Teleport"})
+
+local playerDropdown = MiscTab:Dropdown({
+    Title = "Select Player",
+    List = GetAllPlayers(),
+    Default = "",
+    Callback = function(value) end
+})
+
+MiscTab:Button({
+    Title = "Teleport to Player",
+    Callback = function()
+        local selectedPlayer = playerDropdown:Get()
+        if selectedPlayer and selectedPlayer ~= "" then
+            TeleportToPlayer(selectedPlayer)
+        end
+    end
+})
+
+MiscTab:Section({Title = "Auto Farm"})
+
+MiscTab:Toggle({
+    Title = "Auto Farm",
+    Default = false,
+    Callback = function(value)
+        AutoFarmEnabled = value
+        
+        if AutoFarmEnabled then
+            AutoFarm()
+        else
+            ToggleFly(false)
+            if FarmPlate then
+                FarmPlate:Destroy()
+                FarmPlate = nil
+            end
+        end
+    end
+})
+
+FarmStatus = MiscTab:Label({
+    Title = "Status: Idle"
+})
+
+MiscTab:Section({Title = "Destroy"})
+
+MiscTab:Button({
+    Title = "Destroy GUI",
+    Callback = function()
+        ESPEnabled = false
+        TracersEnabled = false
+        RoleDisplayEnabled = false
+        KillAuraEnabled = false
+        AutoShootEnabled = false
+        FlyEnabled = false
+        NoclipEnabled = false
+        SpeedHackEnabled = false
+        AutoFarmEnabled = false
+        
+        for _, objects in pairs(ESPObjects) do
+            objects.box:Remove()
+            objects.text:Remove()
+        end
+        
+        for _, line in pairs(TracerObjects) do
+            line:Remove()
+        end
+        
+        if RoleDisplay then
+            RoleDisplay:Destroy()
+        end
+        
+        if FarmPlate then
+            FarmPlate:Destroy()
+        end
+        
+        ToggleFly(false)
+        ToggleNoclip(false)
+        ToggleSpeedHack(false)
+        
+        Window:Destroy()
+    end
+})
+
+RunService.RenderStepped:Connect(function()
+    UpdateESP()
+    UpdateTracers()
+    UpdateRoleDisplay()
+    KillAura()
+    AutoShoot()
+end)
+
+Players.PlayerAdded:Connect(function(player)
+    if ESPEnabled then
+        CreateESP(player)
+    end
+    if TracersEnabled then
+        CreateTracer(player)
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    if ESPObjects[player] then
+        ESPObjects[player].box:Remove()
+        ESPObjects[player].text:Remove()
+        ESPObjects[player] = nil
+    end
+    
+    if TracerObjects[player] then
+        TracerObjects[player]:Remove()
+        TracerObjects[player] = nil
+    end
+end)
